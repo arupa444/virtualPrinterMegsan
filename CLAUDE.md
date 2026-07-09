@@ -25,9 +25,13 @@ App ─Print▶ "Printer" ─(Microsoft PS Class Driver → PostScript)▶ redir
 
 `setup.ps1` writes this exact `UserCommand`:
 ```
-"<venv>\Scripts\pythonw.exe" -P "<base>\upload.py" "%f" "%j" "%r" "%t"
+"<venv>\Scripts\pythonw.exe" -P "<base>\upload.py" "%f" "%j" "%r" "%u" "%t"
 ```
-`upload.py:main()` maps it as `ps_file=argv[1]`, `job_id=argv[2]`, `printer=argv[3]`, `docname=" ".join(argv[4:])` (tail-join so document titles with spaces survive). `-P` is a Python **interpreter** flag (keeps the script dir off `sys.path[0]` — a hardening measure, see below), so it does **not** shift the argv mapping. **If you change the argument order or count in either place, change both.**
+`upload.py:main()` maps it as `ps_file=argv[1]`, `job_id=argv[2]`, `printer=argv[3]`, `user=argv[4]`, `docname=" ".join(argv[5:])` (tail-join so document titles with spaces survive; `%u`=user is a single token placed *before* the docname tail). `-P` is a Python **interpreter** flag (keeps the script dir off `sys.path[0]` — a hardening measure, see below), so it does **not** shift the argv mapping. **If you change the argument order or count in either place, change both.**
+
+## Optional per-job identifier: the set-id helper
+
+`set-id.bat` → `set-id.ps1` (run by the **normal user**, no elevation) writes `%ProgramData%\VirtualCloudPrinter\ids\<user>.id` (JSON `{id, once}`). `upload.py:read_pending_id()` reads it keyed by `%u`, attaches it as the `registration_field` (default `registration_number`) form field, and consumes the file if `once`. The `ids\` subfolder is the **only** user-writable path under `$Base` (granted Authenticated Users `M` in `Do-Install`); it is safe because `upload.py` only reads it as opaque text and never imports from it. The username sanitizer must stay identical on both sides (`upload.py:sanitize_userfile` ↔ the `-replace` in `set-id.ps1`).
 
 ## Routing: config.json
 

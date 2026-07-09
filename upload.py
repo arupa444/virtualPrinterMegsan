@@ -44,6 +44,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
 LOG_PATH = os.path.join(BASE_DIR, "log.txt")
 FAILED_DIR = os.path.join(BASE_DIR, "failed")
+IDS_DIR = os.path.join(BASE_DIR, "ids")  # per-user pending id written by set-id.bat
 
 
 def log(message):
@@ -66,6 +67,47 @@ def load_config():
     # PowerShell tools often add one) and still reads BOM-less files fine.
     with io.open(CONFIG_PATH, "r", encoding="utf-8-sig") as fh:
         return json.load(fh)
+
+
+def sanitize_userfile(name):
+    """Map a Windows user name to a safe filename stem (must match set-id.ps1)."""
+    return re.sub(r"[^A-Za-z0-9._-]", "_", name or "")
+
+
+def read_pending_id(user_name):
+    """Return the registration id / UUID the user set via set-id.bat, or None.
+
+    The value lives in ids\\<user>.id as JSON {"id": ..., "once": bool}. If it was
+    marked 'apply to the next print only', it is consumed (deleted) here.
+    """
+    if not user_name:
+        return None
+    path = os.path.join(IDS_DIR, sanitize_userfile(user_name) + ".id")
+    if not os.path.isfile(path):
+        return None
+    try:
+        with io.open(path, "r", encoding="utf-8-sig") as fh:
+            raw = fh.read().strip()
+    except Exception:
+        return None
+    if not raw:
+        return None
+    reg_id, once = raw, False
+    try:
+        obj = json.loads(raw)
+        if isinstance(obj, dict):
+            reg_id = str(obj.get("id", "")).strip()
+            once = bool(obj.get("once", False))
+    except Exception:
+        pass  # not JSON -> treat the whole file as the id (sticky)
+    if not reg_id:
+        return None
+    if once:
+        try:
+            os.remove(path)
+        except Exception:
+            pass
+    return reg_id
 
 
 def sanitize_filename(name, default="document"):
@@ -245,14 +287,15 @@ def main():
     ps_file = args[0] if len(args) > 0 else ""
     job_id = args[1] if len(args) > 1 else ""
     printer_name = args[2] if len(args) > 2 else ""
+    user_name = args[3] if len(args) > 3 else ""
     # The document name is the tail so titles with spaces survive even if the
-    # monitor did not quote them.
-    doc_name = " ".join(args[3:]).strip() if len(args) > 3 else ""
+    # monitor did not quote them. (user_name = %u is a single token before it.)
+    doc_name = " ".join(args[4:]).strip() if len(args) > 4 else ""
     if not doc_name:
         doc_name = os.path.splitext(os.path.basename(ps_file or "document"))[0]
 
-    log("---- job start ---- printer=%r doc=%r jobid=%r ps=%r"
-        % (printer_name, doc_name, job_id, ps_file))
+    log("---- job start ---- printer=%r doc=%r jobid=%r user=%r ps=%r"
+        % (printer_name, doc_name, job_id, user_name, ps_file))
 
     pdf_file = None
     try:
@@ -295,6 +338,16 @@ def main():
             pdf_bytes = fh.read()
 
         upload_name = sanitize_filename(doc_name)
+
+        # Attach a registration number / UUID if the user set one via set-id.bat.
+        reg_id = read_pending_id(user_name)
+        if reg_id:
+            reg_field = config.get("registration_field", "registration_number")
+            printer_cfg = dict(printer_cfg)
+            ef = dict(printer_cfg.get("extra_fields") or {})
+            ef[reg_field] = reg_id
+            printer_cfg["extra_fields"] = ef
+            log("Attached %s=%r (from set-id)." % (reg_field, reg_id))
 
         # Upload, with retries. Clamp so retry_count <= 0 still means one attempt.
         retries = max(0, int(config.get("retry_count", 2)))

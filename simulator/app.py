@@ -85,6 +85,7 @@ def init_db():
                 stored_name  TEXT,
                 size         INTEGER,
                 content_type TEXT,
+                meta         TEXT,
                 received     TEXT
             );
             """
@@ -122,6 +123,7 @@ async def ingest(token: str, request: Request):
     form = await request.form()
     docname = None
     upload = None
+    meta = {}
     for key, value in form.multi_items():
         # Form values are either plain strings or file uploads; anything that
         # isn't a string is the uploaded file (avoids UploadFile-subclass
@@ -129,6 +131,9 @@ async def ingest(token: str, request: Request):
         if isinstance(value, str):
             if key == "docname":
                 docname = value
+            else:
+                # Any other field (e.g. registration_number) is captured as meta.
+                meta[key] = value
         else:
             upload = value
     if upload is None:
@@ -148,15 +153,16 @@ async def ingest(token: str, request: Request):
         fh.write(content)
 
     ctype = upload.content_type or mimetypes.guess_type(upload.filename or "")[0] or "application/octet-stream"
+    import json as _json
     with db() as conn:
         conn.execute(
-            "INSERT INTO files (token, docname, stored_name, size, content_type, received) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
-            (token, docname, stored_name, len(content), ctype, now_iso()),
+            "INSERT INTO files (token, docname, stored_name, size, content_type, meta, received) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (token, docname, stored_name, len(content), ctype, _json.dumps(meta), now_iso()),
         )
         conn.commit()
 
-    return JSONResponse({"ok": True, "docname": docname, "bytes": len(content)})
+    return JSONResponse({"ok": True, "docname": docname, "meta": meta, "bytes": len(content)})
 
 
 # --------------------------------------------------------------------------- #
@@ -203,7 +209,7 @@ async def list_files(token: str, x_admin_token: str = Header(default="")):
     require_admin(x_admin_token)
     with db() as conn:
         rows = conn.execute(
-            "SELECT id, docname, stored_name, size, content_type, received "
+            "SELECT id, docname, stored_name, size, content_type, meta, received "
             "FROM files WHERE token = ? ORDER BY id DESC", (token,)
         ).fetchall()
     return [dict(r) for r in rows]
@@ -270,7 +276,7 @@ DASHBOARD = """<!doctype html>
   </div>
   <div class="card" id="filescard" style="display:none">
     <div class="row"><b>Received documents</b> <span id="fltitle" class="pill"></span></div>
-    <table id="files"><thead><tr><th>Document name</th><th>Size</th><th>Type</th><th>Received</th><th></th></tr></thead><tbody></tbody></table>
+    <table id="files"><thead><tr><th>Document name</th><th>Registration / UUID</th><th>Size</th><th>Type</th><th>Received</th><th></th></tr></thead><tbody></tbody></table>
   </div>
 </main>
 <script>
@@ -306,8 +312,9 @@ DASHBOARD = """<!doctype html>
    document.getElementById('fltitle').textContent=label;
    const tb=document.querySelector('#files tbody'); tb.innerHTML='';
    for(const f of await r.json()){
+     let reg=''; try{ const m=JSON.parse(f.meta||'{}'); reg=m.registration_number||Object.values(m).join(', ')||''; }catch(e){}
      const tr=document.createElement('tr');
-     tr.innerHTML='<td>'+f.docname+'</td><td>'+f.size+'</td><td class="muted">'+f.content_type+'</td><td class="muted">'+f.received+'</td>'+
+     tr.innerHTML='<td>'+f.docname+'</td><td><code>'+(reg||'&mdash;')+'</code></td><td>'+f.size+'</td><td class="muted">'+f.content_type+'</td><td class="muted">'+f.received+'</td>'+
        '<td><a href="/api/files/'+f.id+'?x_admin_token='+encodeURIComponent(tok())+'" onclick="this.href=\\'/api/files/'+f.id+'\\';dl(event,'+f.id+');return false">download</a></td>';
      tb.appendChild(tr);
    }

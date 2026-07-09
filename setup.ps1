@@ -34,6 +34,7 @@ $ErrorActionPreference = 'Stop'
 $Base          = Join-Path $env:ProgramData 'VirtualCloudPrinter'
 $SpoolDir      = Join-Path $Base 'spool'
 $FailedDir     = Join-Path $Base 'failed'
+$IdsDir        = Join-Path $Base 'ids'
 $VenvDir       = Join-Path $Base 'venv'
 $PythonDir     = Join-Path $Base 'python'
 $ConfigPath    = Join-Path $Base 'config.json'
@@ -204,7 +205,9 @@ function Set-Port {
     # -P keeps the script's own directory off sys.path[0] so a planted sibling
     # module can never be imported ahead of the stdlib (defense in depth with the
     # $Base ACL). It is an interpreter flag, so upload.py's argv is unchanged.
-    $userCommand = ('"{0}" -P "{1}" "%f" "%j" "%r" "%t"' -f $PythonwPath, $UploadScript)
+    # Args: %f=spool file, %j=job id, %r=printer, %u=user (for the set-id lookup),
+    # %t=document title (tail, so spaces survive). Keep in sync with upload.py.
+    $userCommand = ('"{0}" -P "{1}" "%f" "%j" "%r" "%u" "%t"' -f $PythonwPath, $UploadScript)
 
     Write-Info "Creating port '$PortName' under monitor '$Monitor' (spooler will restart)..."
     Stop-Service -Name Spooler -Force
@@ -357,6 +360,13 @@ function Do-Install {
     # users reading config.json (which may hold auth headers) and log.txt.
     & icacls "$Base" /inheritance:r /grant:r "SYSTEM:(OI)(CI)F" "Administrators:(OI)(CI)F" | Out-Null
 
+    # The 'ids' subfolder is the ONE place standard users may write: set-id.bat
+    # (running as the user) drops <user>.id here and upload.py (SYSTEM) reads it.
+    # Safe because upload.py only reads it as opaque text - it is never on sys.path
+    # and no code is imported from it. *S-1-5-11 = Authenticated Users.
+    New-Item -ItemType Directory -Force -Path $IdsDir | Out-Null
+    & icacls "$IdsDir" /grant "*S-1-5-11:(OI)(CI)M" | Out-Null
+
     Copy-Item (Join-Path $ScriptDir 'upload.py') $UploadScript -Force
     if (-not (Test-Path $ConfigPath)) {
         Copy-Item (Join-Path $ScriptDir 'config.template.json') $ConfigPath -Force
@@ -394,6 +404,22 @@ function Do-Install {
 
     Write-Step 'Creating the printer'
     Add-VirtualPrinter -Name $PrinterName -TargetUrl $Url
+
+    # Convenience: a "Set Print ID" shortcut on the public desktop so users can set
+    # a registration number / UUID before printing (see set-id.bat).
+    $setIdBat = Join-Path $ScriptDir 'set-id.bat'
+    if (Test-Path $setIdBat) {
+        try {
+            $lnk = Join-Path $env:PUBLIC 'Desktop\Set Print ID.lnk'
+            $ws = New-Object -ComObject WScript.Shell
+            $sc = $ws.CreateShortcut($lnk)
+            $sc.TargetPath = $setIdBat
+            $sc.WorkingDirectory = $ScriptDir
+            $sc.Description = 'Set a registration number / UUID for your next print job'
+            $sc.Save()
+            Write-Ok "Desktop shortcut created: 'Set Print ID'"
+        } catch { Write-Warn2 "Could not create desktop shortcut: $($_.Exception.Message)" }
+    }
 
     Write-Host "`nDONE." -ForegroundColor Green
     Write-Host "Printer '$PrinterName' is ready and will POST PDFs to:`n    $Url" -ForegroundColor Green

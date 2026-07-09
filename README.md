@@ -103,6 +103,28 @@ The received PDF and the document name show up in the console and in `.\received
 
 ---
 
+## Attaching a registration number / UUID to a print job
+
+The Windows print dialog can't show an extra field, so the person supplies the
+identifier with the **Set Print ID** helper *before* printing:
+
+1. Double-click **`set-id.bat`** (or the **"Set Print ID"** desktop shortcut the
+   installer creates). No admin needed.
+2. Type a registration number, or click **New UUID** to generate one. Choose:
+   - **Apply to the next print only** (consumed after one job — safest for
+     per-document IDs), or leave unchecked to **keep it until you change it**
+     (handy when printing several documents under one number).
+3. Click **Save**, then print as normal.
+
+The identifier is sent to your URL as its own form field, **`registration_number`**
+(rename via `registration_field` in `config.json`), alongside `docname` + `file`.
+In the simulator it shows in the received-documents table. Click **Clear** in the
+helper to stop attaching an ID.
+
+> How it works: the helper writes a small per-user file under the (locked)
+> install folder's `ids\` subfolder; the uploader reads it for that user, attaches
+> the value, and — if "next print only" — deletes it. Nothing else is user-writable.
+
 ## Configuration — `config.json`
 
 Located at `%ProgramData%\VirtualCloudPrinter\config.json`. The installer manages
@@ -202,6 +224,7 @@ and registers clawmon automatically. Source: <https://github.com/hessandrew/claw
 |---|---|
 | `install.bat` | one-click install + create first printer (elevates) |
 | `add-printer.bat` | create an additional printer → its own URL |
+| `set-id.bat` / `set-id.ps1` | set a registration number / UUID to attach to your next print(s) |
 | `status.bat` | show monitor, printers, URLs, recent log |
 | `uninstall.bat` | remove printers, port, and files |
 | `setup.ps1` | all the actual logic (called by the .bat files) |

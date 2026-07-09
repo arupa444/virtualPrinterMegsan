@@ -16,6 +16,7 @@
 
   "docname_field": "docname",
   "file_field": "file",
+  "registration_field": "registration_number",
   "extra_fields": {},
   "headers": {},
 
