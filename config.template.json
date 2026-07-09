@@ -1,0 +1,28 @@
+{
+  "_comment": "Virtual Cloud Printer configuration. One entry per printer under 'printers'. The key MUST match the printer name exactly as it appears in the Windows print dialog. Each printer's 'url' is where its jobs are POSTed (multipart/form-data: docname + file).",
+
+  "printers": {
+    "Virtual Cloud Printer": {
+      "url": "https://example.com/print-upload",
+      "docname_field": "docname",
+      "file_field": "file",
+      "extra_fields": {},
+      "headers": {},
+      "verify_tls": true
+    }
+  },
+
+  "default_url": "",
+
+  "docname_field": "docname",
+  "file_field": "file",
+  "extra_fields": {},
+  "headers": {},
+
+  "verify_tls": true,
+  "timeout_seconds": 60,
+  "retry_count": 2,
+  "retry_delay_seconds": 3,
+
+  "ghostscript_path": ""
+}

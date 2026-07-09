@@ -1,0 +1,66 @@
+Virtual Cloud Printer — third-party components & license notice
+================================================================
+
+This repository's own code is MIT-licensed (see LICENSE). However, the installer
+(install.bat / setup.ps1) DOWNLOADS and USES third-party software at runtime that
+this project does NOT bundle or redistribute. Each carries its own license and
+obligations. Review these before any commercial or regulated (e.g. pharma) use.
+
+--------------------------------------------------------------------------------
+1. Ghostscript  (PostScript -> PDF conversion)             ** READ THIS FIRST **
+--------------------------------------------------------------------------------
+   - Publisher: Artifex Software, Inc.
+   - License:   GNU AGPL v3  (the free build) OR a paid commercial license.
+   - Why it matters: Ghostscript is dual-licensed. Artifex actively offers (and
+     sells) commercial licenses for use in commercial/proprietary settings.
+     The AGPL imposes source-availability obligations that many organizations
+     cannot or do not want to meet.
+   - Recommendation for a COMPANY (especially regulated, e.g. pharmaceutical):
+     have legal/compliance review the AGPL, or obtain a commercial license from
+     Artifex (https://artifex.com/licensing/). Ghostscript runs entirely locally
+     and does not transmit your documents anywhere — this is a *licensing*
+     consideration, not a data-privacy one.
+   - Alternatives if AGPL is unacceptable: purchase the Artifex commercial
+     license, or replace the conversion step (e.g. send raw PostScript instead
+     of PDF, or use a commercially-licensed PDF converter/driver).
+
+--------------------------------------------------------------------------------
+2. mfilemon — "Multi File Port Monitor"  (print-port monitor)
+--------------------------------------------------------------------------------
+   - Author:  Lorenzo Monti
+   - License: GNU GPL v2
+   - Source:  https://sourceforge.net/projects/mfilemon/
+   - Use: this project installs the unmodified binary and configures a port via
+     the registry. Internal use does not trigger GPL distribution obligations;
+     redistributing a bundle that includes mfilemon would.
+
+--------------------------------------------------------------------------------
+3. clawmon  (optional drop-in alternative to mfilemon)
+--------------------------------------------------------------------------------
+   - Author:  Andrew Hess / clawSoft (fork of mfilemon)
+   - License: GNU GPL v2
+   - Source:  https://github.com/hessandrew/clawmon
+   - Not downloaded automatically (no prebuilt binaries are published). Only used
+     if you place its binaries in vendor/ yourself.
+
+--------------------------------------------------------------------------------
+4. uv  (Python/venv provisioning)
+--------------------------------------------------------------------------------
+   - Publisher: Astral
+   - License:   Apache-2.0 OR MIT (permissive; commercial use permitted)
+   - Source:    https://github.com/astral-sh/uv
+
+--------------------------------------------------------------------------------
+5. CPython  (the interpreter that runs upload.py)
+--------------------------------------------------------------------------------
+   - License: PSF License (permissive; commercial use permitted)
+   - Source:  https://www.python.org/
+
+--------------------------------------------------------------------------------
+6. FastAPI / Starlette / Uvicorn / python-multipart  (simulator only)
+--------------------------------------------------------------------------------
+   - Licenses: MIT / BSD (permissive). Used by simulator/app.py only; not part
+     of the printer install.
+
+Nothing in this project transmits your documents to any of the above vendors.
+The only network destination is the HTTPS URL you configure per printer.
