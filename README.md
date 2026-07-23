@@ -235,3 +235,7 @@ and registers clawmon automatically. Source: <https://github.com/hessandrew/claw
 | `simulator/` | FastAPI receiver simulator (create links, receive & view PDFs) |
 | `COMPLIANCE-AND-PRIVACY.md` | licensing, regulatory & privacy guidance (read for pharma use) |
 | `NOTICE` / `LICENSE` | third-party license obligations / this project's MIT license |
+
+
+admin: Z-BYSDLAYcQnAWtXrDxdtYUPf0_mA391 jdsovbjdf
+enroll: isn_2-NUGpM92N5e-_PxIejWPMAqDs4O dfhrtht
